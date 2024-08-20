@@ -1,19 +1,14 @@
 from fastapi import APIRouter, HTTPException, status
+from mongoengine import ValidationError
+from app.models.user import User  
+from app.schemas.user import UserCreate, UserResponse , UserSignIn 
+from datetime import datetime
+from app.utils.jwt import create_access_token, create_refresh_token 
 from pydantic import EmailStr
 from passlib.context import CryptContext
-from mongoengine import ValidationError
-from app.models.user import User  # Import your MongoDB User model
-from app.schemas.user import UserCreate, UserResponse  # Import your Pydantic schemas
-from app.utils.jwt import create_access_token, create_refresh_token  # Import JWT functions
-from datetime import datetime
-
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
-
-router = APIRouter()
-
-# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Utility function to hash passwords
 def hash_password(password: str) -> str:
@@ -22,6 +17,17 @@ def hash_password(password: str) -> str:
 # Utility function to check if a user already exists by email
 def check_user_exists(email: EmailStr) -> bool:
     return User.objects(email=email).first() is not None
+
+
+# Utility function to verify passwords
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+# Utility function to get user by email
+def get_user_by_email(email: EmailStr):
+    return User.objects(email=email).first()
+
+router = APIRouter()
 
 @router.post("/api/users", status_code=status.HTTP_201_CREATED)
 async def sign_up(user: UserCreate):
@@ -76,3 +82,47 @@ async def sign_up(user: UserCreate):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred: " + str(e)
         )
+
+
+
+@router.post("/api/users/sign_in", status_code=status.HTTP_200_OK)
+async def sign_in(user: UserSignIn):
+    # Fetch user by email
+    db_user = get_user_by_email(user.email)
+    
+    if not db_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
+    
+    # Verify the password
+    if not verify_password(user.password, db_user.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
+    
+    #fetch user data from db
+    user = UserResponse(
+        id=str(db_user.id),
+        name=db_user.name,
+        email=db_user.email,
+        dob=db_user.dob,
+        createdAt=db_user.createdAt.isoformat() if db_user.createdAt else datetime.utcnow().isoformat(),
+        updatedAt=db_user.updatedAt.isoformat() if db_user.updatedAt else datetime.utcnow().isoformat()
+    )
+    
+    # Create tokens
+    access_token = create_access_token(
+        data={"sub": str(db_user.id)}
+    )
+    refresh_token = create_refresh_token(
+        data={"sub": str(db_user.id)}
+    )
+    
+    return {
+        "user": user,
+        "access_token": access_token,
+        "refresh_token": refresh_token
+    }

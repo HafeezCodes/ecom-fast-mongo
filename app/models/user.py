@@ -1,5 +1,8 @@
 from mongoengine import Document, fields
 import datetime
+from passlib.context import CryptContext
+
+
 
 class User(Document):
     name = fields.StringField(max_length=100, required=True)
@@ -12,3 +15,6 @@ class User(Document):
     meta = {
         'collection': 'users'
     }
+
+
+

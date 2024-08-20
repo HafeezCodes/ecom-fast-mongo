@@ -8,7 +8,7 @@ from mongoengine.errors import NotUniqueError, ValidationError, OperationError
 from pymongo.errors import DuplicateKeyError
 
 from app.constants import constants
-from app.routers import user
+from app.routers import user, product, cart
 from app.database import connect_db, disconnect_db
 # from app.utils.json_encoder import custom_json_response
 from app.exceptions import (
@@ -45,8 +45,8 @@ app.add_middleware(
 
 # Include routers
 app.include_router(user.router)
-# app.include_router(label.router)
-# app.include_router(note.router)
+app.include_router(product.router)
+app.include_router(cart.router)
 
 # Exception handlers
 app.add_exception_handler(HTTPException, http_exception_handler)

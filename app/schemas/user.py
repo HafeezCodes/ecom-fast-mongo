@@ -31,3 +31,8 @@ class UserResponse(BaseModel):
             datetime.datetime: lambda v: v.isoformat(),
             datetime.date: lambda v: v.isoformat()
         }
+
+
+class UserSignIn(BaseModel):
+    email: EmailStr
+    password: str

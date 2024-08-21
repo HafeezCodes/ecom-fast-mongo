@@ -7,12 +7,14 @@ class Product(Document):
     price = fields.FloatField(required=True)
     stock = fields.IntField(required=True)
     createdAt = fields.DateTimeField(default=datetime.datetime.utcnow)
-    updatedAt = fields.DateTimeField(auto_now=True)
+    # updatedAt = fields.DateTimeField(auto_now=True)
+    updatedAt = fields.DateTimeField(default=datetime.datetime.utcnow, auto_now=True)  
+
 
     meta = {
         'collection': 'products'
     }
 
-    def save(self, *args, **kwargs):
-        self.updatedAt = datetime.datetime.utcnow()  # Update `updatedAt` before saving
-        return super(Product, self).save(*args, **kwargs)
+    # def save(self, *args, **kwargs):
+    #     self.updatedAt = datetime.datetime.utcnow()  # Update `updatedAt` before saving
+    #     return super(Product, self).save(*args, **kwargs)

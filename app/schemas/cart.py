@@ -4,7 +4,6 @@ import datetime
 
 class CartItemCreate(BaseModel):
     product_id: str
-    quantity: int
 
 class CartItemResponse(BaseModel):
     id: str

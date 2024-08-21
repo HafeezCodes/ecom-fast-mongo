@@ -9,22 +9,18 @@ from app.security import UserAuthenticator, oauth2_scheme
 router = APIRouter()
 user_authenticator = UserAuthenticator()
 
-import logging
-
 @router.post("/api/users/{user_id}/cart", response_model=CartItemResponse, status_code=status.HTTP_201_CREATED)
 async def add_to_cart(user_id: str, cart_item: CartItemCreate, token: str = Depends(oauth2_scheme)):
     user_authenticator.authenticate_user(token, user_id)
 
     existing_item = CartItem.objects(user_id=ObjectId(user_id), product_id=cart_item.product_id).first()
     if existing_item:
-        existing_item.quantity += cart_item.quantity
-        logging.info(f"Before save - updatedAt: {existing_item.updatedAt}")
-        existing_item.save()  # This should trigger an update for updatedAt
-        logging.info(f"After save - updatedAt: {existing_item.updatedAt}")
+        existing_item.quantity += 1  # Increment quantity by 1
+        existing_item.save()  # Save the updated item
         return CartItemResponse(
             id=str(existing_item.id),
             user_id=str(existing_item.user_id.id),
-            product_id=str(existing_item.product_id),
+            product_id=str(existing_item.product_id.id),
             quantity=existing_item.quantity,
             createdAt=existing_item.createdAt.isoformat() if existing_item.createdAt else None,
             updatedAt=existing_item.updatedAt.isoformat() if existing_item.updatedAt else None
@@ -33,20 +29,19 @@ async def add_to_cart(user_id: str, cart_item: CartItemCreate, token: str = Depe
     new_cart_item = CartItem(
         user_id=ObjectId(user_id),
         product_id=cart_item.product_id,
-        quantity=cart_item.quantity
+        quantity=1  # Set quantity to 1 for new items
     )
-    logging.info(f"Before save new item - createdAt: {new_cart_item.createdAt}, updatedAt: {new_cart_item.updatedAt}")
-    new_cart_item.save()  # This should set createdAt and updatedAt
-    logging.info(f"After save new item - createdAt: {new_cart_item.createdAt}, updatedAt: {new_cart_item.updatedAt}")
+    new_cart_item.save()  # Save the new cart item
 
     return CartItemResponse(
         id=str(new_cart_item.id),
         user_id=str(new_cart_item.user_id.id),
-        product_id=str(new_cart_item.product_id),
+        product_id=str(new_cart_item.product_id.id),
         quantity=new_cart_item.quantity,
         createdAt=new_cart_item.createdAt.isoformat() if new_cart_item.createdAt else None,
         updatedAt=new_cart_item.updatedAt.isoformat() if new_cart_item.updatedAt else None
     )
+
 
 
 
@@ -56,16 +51,23 @@ async def get_cart(user_id: str, token: str = Depends(oauth2_scheme)):
 
     cart_items = CartItem.objects(user_id=ObjectId(user_id))
 
+    if not cart_items:
+        # Return a custom message when no items are in the cart
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No items in the cart."
+        )
+
     return [CartItemResponse(
         id=str(item.id),
         user_id=str(item.user_id.id),
-        product_id=str(item.product_id),
+        product_id=str(item.product_id.id),
         quantity=item.quantity,
         createdAt=item.createdAt.isoformat() if item.createdAt else None,
         updatedAt=item.updatedAt.isoformat() if item.updatedAt else None
     ) for item in cart_items]
 
-@router.delete("/api/users/{user_id}/cart/{cart_item_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/api/users/{user_id}/cart/{cart_item_id}", status_code=status.HTTP_200_OK)
 async def remove_from_cart(user_id: str, cart_item_id: str, token: str = Depends(oauth2_scheme)):
     current_user = user_authenticator.authenticate_user(token, user_id)
     
@@ -80,48 +82,38 @@ async def remove_from_cart(user_id: str, cart_item_id: str, token: str = Depends
     return {"message": "Cart item removed successfully"}
 
 
-@router.delete("/api/users/{user_id}/cart/product", status_code=status.HTTP_204_NO_CONTENT)
-async def remove_items_from_cart(user_id: str, cart_item_delete: CartItemDelete, token: str = Depends(oauth2_scheme)):
-    # Authenticate user
-    user_authenticator.authenticate_user(token, user_id)
-    
-    # Debug: Print values
-    print(f"User ID (string): {user_id}")
-    print(f"Product ID (string): {cart_item_delete.product_id}")
-    
-    # Convert IDs to ObjectId
-    try:
-        user_id_obj = ObjectId(user_id)
-        product_id_obj = ObjectId(cart_item_delete.product_id)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid ID format: {e}")
-    
-    # Debug: Print converted ObjectIds
-    print(f"User ID (ObjectId): {user_id_obj}")
-    print(f"Product ID (ObjectId): {product_id_obj}")
+
+@router.patch("/api/users/{user_id}/cart/{product_id}/reduce", status_code=status.HTTP_200_OK)
+async def reduce_cart_item_quantity(user_id: str, product_id: str, token: str = Depends(oauth2_scheme)):
+    user_authenticator.authenticate_user(token, user_id)  # Ensure user is authenticated
     
     # Find the cart item
-    cart_item = CartItem.objects(user_id=user_id_obj, product_id=product_id_obj).first()
+    cart_item = CartItem.objects(user_id=ObjectId(user_id), product_id=ObjectId(product_id)).first()
+    
     if not cart_item:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Cart item not found for the specified product"
+            detail="Cart item not found"
         )
+    
+    # Reduce the quantity by 1
+    cart_item.quantity -= 1
 
-    # Check if there are enough items to remove
-    if cart_item.quantity < cart_item_delete.quantity:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Not enough items to remove"
-        )
-    
-    # Remove or update the quantity of items
-    cart_item.quantity -= cart_item_delete.quantity
-    if cart_item.quantity == 0:
+    if cart_item.quantity <= 0:
+        # If the quantity reaches 0, remove the item from the cart
         cart_item.delete()
-    else:
-        cart_item.save()
+        return {"message": "Cart item removed successfully because quantity reached 0"}
     
-    return {"message": "Specified quantity of items removed successfully"}
+    # Otherwise, save the updated cart item
+    cart_item.save()
+    return CartItemResponse(
+        id=str(cart_item.id),
+        user_id=str(cart_item.user_id.id),
+        product_id=str(cart_item.product_id.id),  # Ensure correct access to product_id
+        quantity=cart_item.quantity,
+        createdAt=cart_item.createdAt.isoformat() if cart_item.createdAt else None,
+        updatedAt=cart_item.updatedAt.isoformat() if cart_item.updatedAt else None
+    )
+
 
 

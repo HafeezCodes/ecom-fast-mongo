@@ -10,12 +10,13 @@ class CartItemResponse(BaseModel):
     user_id: str
     product_id: str
     quantity: int
-    createdAt: Optional[str]
-    updatedAt: Optional[str]
+    createdAt: str
+    updatedAt: str
 
     class Config:
         json_encoders = {
-            datetime.datetime: lambda v: v.isoformat()
+            datetime.datetime: lambda v: v.isoformat(),
+            datetime.date: lambda v: v.isoformat()
         }
 
 class CartItemDelete(BaseModel):

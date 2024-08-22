@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException, status
 from app.models.user import User, hash_password, check_user_exists, verify_password, get_user_by_email
 from app.schemas.user import UserCreate, UserResponse, UserSignIn
 from app.utils.jwt import create_access_token, create_refresh_token
-from datetime import datetime
 from app.utils.formatting import format_mongo_to_pydantic
 
 router = APIRouter()
@@ -29,31 +28,15 @@ async def sign_up(user: UserCreate):
     access_token = create_access_token({"sub": str(new_user.id)})
     refresh_token = create_refresh_token({"sub": str(new_user.id)})
 
-     # Format the user response
     user_response = format_mongo_to_pydantic(new_user, UserResponse)
 
-    # Return the custom response
     return {
         "user": user_response,
         "access_token": access_token,
         "refresh_token": refresh_token
     }
 
-    return {
-        "user": UserResponse(
-            id=str(new_user.id),  
-            name=new_user.name,
-            email=new_user.email,
-            dob=new_user.dob,
-            createdAt=str(new_user.createdAt),
-            updatedAt=str(new_user.updatedAt),
-        ),
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-    }
-
-    
-
+   
 @router.post("/api/users/sign_in", status_code=status.HTTP_200_OK)
 async def sign_in(user: UserSignIn):
     db_user = get_user_by_email(user.email)
@@ -73,10 +56,8 @@ async def sign_in(user: UserSignIn):
     access_token = create_access_token(data={"sub": str(db_user.id)})
     refresh_token = create_refresh_token(data={"sub": str(db_user.id)})
     
-     # Format the user response
     user_response = format_mongo_to_pydantic(db_user, UserResponse)
 
-    # Return the custom response
     return {
         "user": user_response,
         "access_token": access_token,
@@ -84,8 +65,4 @@ async def sign_in(user: UserSignIn):
     }
     
 
-    return {
-        "user": user_response,
-        "access_token": access_token,
-        "refresh_token": refresh_token
-    }
+    

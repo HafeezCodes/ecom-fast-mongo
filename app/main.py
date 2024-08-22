@@ -10,7 +10,6 @@ from pymongo.errors import DuplicateKeyError
 from app.constants import constants
 from app.routers import user, product, cart
 from app.database import connect_db, disconnect_db
-# from app.utils.json_encoder import custom_json_response
 from app.exceptions import (
     http_exception_handler,
     validation_exception_handler,
@@ -59,8 +58,6 @@ app.add_exception_handler(OperationError, operation_error_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 app.add_exception_handler(DuplicateKeyError, duplicate_key_error_handler)
 
-# Use custom JSON response globally
-# app.json_response_class = custom_json_response
 
 if __name__ == "__main__":
     import uvicorn

@@ -12,11 +12,9 @@ TSchema = TypeVar('TSchema', bound=BaseModel)
 def format_mongo_to_pydantic(document: TDocument, schema: Type[TSchema]) -> TSchema:
     """
     Convert a MongoEngine document to a Pydantic model.
-
     Args:
         document (Document): The MongoEngine document.
         schema (Type[BaseModel]): The Pydantic schema to use for formatting.
-
     Returns:
         BaseModel: The formatted Pydantic model.
     """
